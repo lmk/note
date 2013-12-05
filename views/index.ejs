@@ -1,78 +1,24 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title><%= title %></title>
+    <title>Web Note</title>
     <link rel='stylesheet' href='/stylesheets/style.css' />
-		<style type="text/css" media="screen">
-    	#editor { 
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: 0;
-    	}
-	</style>
-  <script src="http://d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/javascripts/jquery-2.0.3.min.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/socket.io/socket.io.js" type="text/javascript" charset="utf-8"></script>
+    <!--script src="http://d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script-->
+    <script src="/javascripts/ace-editor/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/javascripts/jquery-2.0.3.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/socket.io/socket.io.js" type="text/javascript" charset="utf-8"></script>
   </head>
   <body>
-<!--    <h1><%= title %></h1> -->
-
     <div id="editor"></div>
-  <script>
-    var editor = ace.edit("editor");
-    var doc = editor.getSession();
-    var oldContent = null;
-    var info = {};
+    <script type="text/javascript" charset="utf-8">
+      var info = { 
+        'id': '',
+        'name': '<%= name %>',
+        'format': '<%= format %>'
+      };
 
-    editor.setTheme("ace/theme/monokai");
-    doc.setMode("ace/mode/javascript");
-    doc.setTabSize(2);
-
-    $(document).ready(function(){
-      var socket = io.connect('http://m.newtype.pe.kr:8080');
-
-		  doc.on("change", function(e){
-			  //console.log("chage:"+doc.getValue()+";");
-        //if ( !doc.getValue() ) console.log(e);
-        if ( doc.getValue() && oldContent !== doc.getValue() ) {
-          /* event 발생시 별도 ID 생성 필요?
-             position set moveCursorToPosition(Object pos)
-             position get getCursorPosition()
-          */
-          console.log('position');
-          var position = editor.getCursorPosition();
-          console.log('old:'+oldContent+', curr:'+doc.getValue()+';');
-          oldContent = doc.getValue();
-          socket.emit('send', { 
-            eid: '' + info.id + new Date(),
-            owner: info.id, 
-            content: oldContent, 
-            position: {
-              row: position.row, 
-              column: position.column  
-            }
-          });
-        }
-		  });
-
-      socket.on('init', function(data){
-        info.id = data.id;
-
-        
-      });
-
-      socket.on('recv', function(data){
-        console.log('recv; '+data.content);
-        console.log(data);
-        if ( data && oldContent !== data.content ) {
-          doc.setValue(data.content);
-          oldContent = data.content;
-        }
-      });
-
-    });
-  </script>
+    </script>
+    <script src="/javascripts/support_extension.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/javascripts/client.js" type="text/javascript" charset="utf-8"></script>
   </body>
 </html>

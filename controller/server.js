@@ -1,32 +1,115 @@
+
 var fs = require('fs');
-var serverSocket = null;
+var io = null;
 var dataDir = null;
-var contents;
+var notes = [];
+//var contents = "";
+//var position = { 'row': 0, 'column': 0 };
 
+/* @brif Get Index in notes Array by Name
+ * @param[in] name name
+ * @retval index
+ */
+function getNoteIdByName(name) {
+  for(var i in notes) {
+    if( notes[i].name === name ) return i;
+  }
 
-exports.init = function (cfg) {
-  serverSocket = cfg.serverSocket;
-  dataDir = cfg.dataDir;
-  fs.readFile(dataDir + '/a', {encoding: 'utf8'}, function(err, data){
-    if (err) console.log(err);
-    contents=data;
-  });
+  return -1;
 }
 
-exports.connection = function(socket) {
+/* @brif server initinailize 
+ * @param[in] cfg option
+ * @remark default load
+ */
+exports.init = function (cfg) {
+  io = cfg.io;
+  dataDir = cfg.dataDir;
+}
 
-  socket.emit('recv', { content: contents });
+exports.connection = function(socket){
+
+  socket.on('init', function(data){
+
+    var note;
+
+    // notes check
+    var noteId = getNoteIdByName(data.name);
+
+    if ( noteId === -1 ) {
+
+      noteId = notes.length;
+
+      note = new Object({
+        id: noteId,
+        name:  data.name,
+        position: {row:0, col:0},
+        content: ''
+      });
+
+      note.id = noteId;
+      note.name = data.name;
+      note.position = new Object({row:0, col:0});
+      note.content = '';
+
+      notes.push(note);
+    } else {
+      note = notes[noteId];
+    };
+    
+    // grouping page name 
+    socket.join(''+noteId);
+    socket.set('noteId', noteId);
+
+    // data file open
+    fs.readFile(dataDir+'/'+data.name+'.pos'
+      , {'encoding': 'utf8'}
+      , function(err, data){
+          if ( err ) console.log(err);
+          if ( data ) notes[noteId].position = JSON.parse(data);
+    });
+
+    fs.readFile(dataDir+'/'+data.name+'.dat'
+      , {'encoding': 'utf8'}
+      , function(err, data){
+          if ( err ) console.log(err);
+          if ( data ) {
+            notes[noteId].content = data;
+          }
+
+          socket.emit('initAck', { 
+            'id': socket.id, 
+            'content': notes[noteId].content,
+            'position': notes[noteId].position
+          });
+    });
+  });
 
   socket.on('send', function(data){
-    if ( data && data.content && contents === data.content ) return;
+    socket.get('noteId', function(error, noteId){
+      var note = notes[noteId];
+      if ( data.position ) {
+        note.position = data.position;  
+        fs.writeFile(dataDir + '/' + note.name + '.pos'
+          , JSON.stringify( note.position, null, 2)
+          , {'encoding': 'utf8'},
+          function(err) {
+            if (err) console.log(err);
+        });
+      }
 
-    console.log('send '+data.content);
+      /* content가 바뀌면 저장 */
+      if ( data.content && note.content !== data.content ){
+        note.content = data.content; 
+        fs.writeFile(dataDir + '/' + note.name + '.dat'
+          , note.content
+          , {'encoding': 'utf8'}
+          , function(err){
+          if (err) console.log(err);
+        });
 
-    contents = data.content;
-    fs.writeFile(dataDir + '/a', contents, {encoding: 'utf8'}, function(err) {
-      if (err) console.log(err);
-      //console.log(data);
-      serverSocket.sockets.emit('recv', { content: contents });
+        io.sockets.in(''+noteId).emit('recv', data);
+      }
     });
   });
 };
