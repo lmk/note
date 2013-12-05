@@ -3,8 +3,6 @@ var fs = require('fs');
 var io = null;
 var dataDir = null;
 var notes = [];
-//var contents = "";
-//var position = { 'row': 0, 'column': 0 };
 
 /* @brif Get Index in notes Array by Name
  * @param[in] name name
@@ -28,6 +26,17 @@ exports.init = function (cfg) {
 }
 
 exports.connection = function(socket){
+
+  socket.on('disconnect', function(){
+    socket.get('noteId', function(error, noteId){
+      if (error) console.log(error);
+      try {
+        socket.leave(''+noteId);
+      } catch(e) {
+        console.log(e);
+      }
+    });
+  });
 
   socket.on('init', function(data){
 
@@ -64,15 +73,15 @@ exports.connection = function(socket){
     // data file open
     fs.readFile(dataDir+'/'+data.name+'.pos'
       , {'encoding': 'utf8'}
-      , function(err, data){
-          if ( err ) console.log(err);
+      , function(error, data){
+          if ( error ) console.log(error);
           if ( data ) notes[noteId].position = JSON.parse(data);
     });
 
     fs.readFile(dataDir+'/'+data.name+'.dat'
       , {'encoding': 'utf8'}
-      , function(err, data){
-          if ( err ) console.log(err);
+      , function(error, data){
+          if ( error ) console.log(error);
           if ( data ) {
             notes[noteId].content = data;
           }
@@ -93,8 +102,8 @@ exports.connection = function(socket){
         fs.writeFile(dataDir + '/' + note.name + '.pos'
           , JSON.stringify( note.position, null, 2)
           , {'encoding': 'utf8'},
-          function(err) {
-            if (err) console.log(err);
+          function(error) {
+            if (error) console.log(error);
         });
       }
 
@@ -104,8 +113,8 @@ exports.connection = function(socket){
         fs.writeFile(dataDir + '/' + note.name + '.dat'
           , note.content
           , {'encoding': 'utf8'}
-          , function(err){
-          if (err) console.log(err);
+          , function(error){
+          if (error) console.log(error);
         });
 
         io.sockets.in(''+noteId).emit('recv', data);
