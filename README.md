@@ -14,7 +14,7 @@ Web Notepad
 3. FORMAT-EXTENSION로 문서가 syntax highlighting 됩니다.
 4. 같은 문서를 다른 사용자가 열고 있을 경우 실시간으로 편집 내용이 갱신 됩니다.
 > 예를 들어 http://note.newtype.pe.kr/test1.js, http://note.newtype.pe.kr/test1.cpp 두개의 링크는 문서 내용은 같고, syntax highlighting만 다르게 됩니다.
-> http://note.newtype.pe.kr/test1.js 내용을 수정하면, http://note.newtype.pe.kr/test1.cpp의 내용도 실시간으로 수정됩니다.
+> http://note.newtype.pe.kr/test1.js 내용을 수정하면, http://note.newtype.pe.kr/test1.cpp 의 내용도 실시간으로 수정됩니다.
 
 ### 동작환경
 * node.js v0.10.22
