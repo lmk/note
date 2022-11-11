@@ -1,7 +1,7 @@
 ﻿var editor;
 
 $(document).ready(function(){
-  var socket = io.connect('http://m.newtype.pe.kr:8080');
+  var socket = io.connect('/');
 
   socket.emit('init', info);
   socket.on('initAck', function(data){

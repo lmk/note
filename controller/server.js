@@ -23,19 +23,15 @@ function getNoteIdByName(name) {
 exports.init = function (cfg) {
   io = cfg.io;
   dataDir = cfg.dataDir;
+  const fs = require('fs');
+  !fs.existsSync(dataDir) && fs.mkdirSync(dataDir);
 }
 
 exports.connection = function(socket){
 
+  console.log("in exports.connection")
   socket.on('disconnect', function(){
-    socket.get('noteId', function(error, noteId){
-      if (error) console.log(error);
-      try {
-        socket.leave(''+noteId);
-      } catch(e) {
-        console.log(e);
-      }
-    });
+    console.log("disconnect "+ socket.data.noteId);
   });
 
   socket.on('init', function(data){
@@ -68,7 +64,7 @@ exports.connection = function(socket){
     
     // grouping page name 
     socket.join(''+noteId);
-    socket.set('noteId', noteId);
+    socket.data.noteId = noteId;
 
     // data file open
     fs.readFile(dataDir+'/'+data.name+'.pos'
@@ -95,7 +91,8 @@ exports.connection = function(socket){
   });
 
   socket.on('send', function(data){
-    socket.get('noteId', function(error, noteId){
+    var noteId = socket.data.noteId
+   // socket.get('noteId', function(error, noteId){
       var note = notes[noteId];
       if ( data.position ) {
         note.position = data.position;  
@@ -119,7 +116,7 @@ exports.connection = function(socket){
 
         io.sockets.in(''+noteId).emit('recv', data);
       }
-    });
+ //   });
   });
 };
 
