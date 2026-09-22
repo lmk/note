@@ -16,6 +16,15 @@ function getNoteIdByName(name) {
   return -1;
 }
 
+function normalizePosition(position) {
+  position = position || {};
+  var column = position.column != null ? position.column : position.col;
+  return {
+    row: position.row || 0,
+    column: column || 0
+  };
+}
+
 /* @brif server initinailize 
  * @param[in] cfg option
  * @remark default load
@@ -45,17 +54,12 @@ exports.connection = function(socket){
 
       noteId = notes.length;
 
-      note = new Object({
+      note = {
         id: noteId,
-        name:  data.name,
-        position: {row:0, col:0},
+        name: data.name,
+        position: {row: 0, column: 0},
         content: ''
-      });
-
-      note.id = noteId;
-      note.name = data.name;
-      note.position = new Object({row:0, col:0});
-      note.content = '';
+      };
 
       notes.push(note);
     } else {
@@ -69,33 +73,43 @@ exports.connection = function(socket){
     // data file open
     fs.readFile(dataDir+'/'+data.name+'.pos'
       , {'encoding': 'utf8'}
-      , function(error, data){
-          if ( error ) console.log(error);
-          if ( data ) notes[noteId].position = JSON.parse(data);
+      , function(error, raw){
+          if ( error ) {
+            if ( error.code !== 'ENOENT' ) console.log(error);
+            return;
+          }
+          if ( !raw || !String(raw).trim() ) return;
+          try {
+            notes[noteId].position = normalizePosition(JSON.parse(raw));
+          } catch (e) {
+            console.log('invalid position file', data.name, e.message);
+          }
     });
 
     fs.readFile(dataDir+'/'+data.name+'.dat'
       , {'encoding': 'utf8'}
-      , function(error, data){
-          if ( error ) console.log(error);
-          if ( data ) {
-            notes[noteId].content = data;
+      , function(error, raw){
+          if ( error ) {
+            if ( error.code !== 'ENOENT' ) console.log(error);
+          } else if ( typeof raw === 'string' ) {
+            notes[noteId].content = raw;
           }
 
           socket.emit('initAck', { 
             'id': socket.id, 
-            'content': notes[noteId].content,
-            'position': notes[noteId].position
+            'content': notes[noteId].content != null ? notes[noteId].content : '',
+            'position': normalizePosition(notes[noteId].position)
           });
     });
   });
 
   socket.on('send', function(data){
     var noteId = socket.data.noteId
-   // socket.get('noteId', function(error, noteId){
       var note = notes[noteId];
+      if ( !note ) return;
+
       if ( data.position ) {
-        note.position = data.position;  
+        note.position = normalizePosition(data.position);  
         fs.writeFile(dataDir + '/' + note.name + '.pos'
           , JSON.stringify( note.position, null, 2)
           , {'encoding': 'utf8'},
@@ -104,8 +118,8 @@ exports.connection = function(socket){
         });
       }
 
-      /* content가 바뀌면 저장 */
-      if ( data.content && note.content !== data.content ){
+      /* content가 바뀌면 저장 (빈 문자열 포함) */
+      if ( typeof data.content === 'string' && note.content !== data.content ){
         note.content = data.content; 
         fs.writeFile(dataDir + '/' + note.name + '.dat'
           , note.content
@@ -116,7 +130,5 @@ exports.connection = function(socket){
 
         io.sockets.in(''+noteId).emit('recv', data);
       }
- //   });
   });
 };
-

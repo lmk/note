@@ -12,8 +12,14 @@ $(document).ready(function(){
     editor.getSession().setMode("ace/mode/" + getFileType(document.URL.split('.').pop()));
     editor.getSession().setTabSize(2);
 
-    editor.getSession().setValue(data.content);
-    editor.moveCursorToPosition( data.position );
+    var content = (data && data.content != null) ? data.content : '';
+    var position = {
+      row: (data.position && data.position.row) || 0,
+      column: (data.position && (data.position.column != null ? data.position.column : data.position.col)) || 0
+    };
+
+    editor.getSession().setValue(content);
+    editor.moveCursorToPosition(position);
 
     $('#editor').keyup(function(){
        var position = editor.getCursorPosition();
@@ -30,19 +36,20 @@ $(document).ready(function(){
          }
        });
    });
-
-   if ( data.position ) editor.moveCursorToPosition( data.position );
   });
 
   socket.on('recv', function(data){
     /* 내가 요청한 content를 갱신할 필요 없다. */
     if ( data && data.owner && data.owner !== info.id ) {
-      if ( data && editor.getSession().getValue() !== data.content ) {
+      if ( typeof data.content === 'string' && editor.getSession().getValue() !== data.content ) {
         editor.getSession().setValue(data.content);
       }
 
-      if ( data && data.position ) {
-        editor.moveCursorToPosition( data.position );
+      if ( data.position ) {
+        editor.moveCursorToPosition({
+          row: data.position.row || 0,
+          column: (data.position.column != null ? data.position.column : data.position.col) || 0
+        });
       }
     }
   });
