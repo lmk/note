@@ -9,6 +9,7 @@ $(document).ready(function(){
 
     editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
+    editor.setFontSize(info.sz || 16);
     editor.getSession().setMode("ace/mode/" + getFileType(document.URL.split('.').pop()));
     editor.getSession().setTabSize(2);
 
