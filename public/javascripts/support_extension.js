@@ -24,7 +24,7 @@ var support_extension = {
   forth: ['forth'],
   ftl: ['ftl'],
   glsl: ['glsl'],
-  golang: ['golang'],
+  golang: ['go','golang'],
   groovy: ['groovy'],
   haml: ['haml'],
   handlebars: ['handlebars'],
