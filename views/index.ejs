@@ -18,6 +18,10 @@
     <script src="/socket.io/socket.io.js" type="text/javascript" charset="utf-8"></script>
   </head>
   <body>
+    <div id="connection-status" class="is-hidden" role="status" aria-live="polite">
+      <span id="connection-status-text"></span>
+      <a href="#" id="connection-status-action" class="is-hidden">새로고침</a>
+    </div>
     <div id="editor"></div>
     <script type="text/javascript" charset="utf-8">
       var info = { 

@@ -7,6 +7,50 @@ a {
   color: #00B7FF;
 }
 
+#connection-status {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  text-align: center;
+}
+
+#connection-status.is-hidden {
+  display: none;
+}
+
+#connection-status.is-offline,
+#connection-status.is-reconnecting {
+  background: #8a6d3b;
+}
+
+#connection-status.is-online {
+  background: #3c763d;
+}
+
+#connection-status.is-failed {
+  background: #a94442;
+}
+
+#connection-status-action {
+  color: #fff;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+#connection-status-action.is-hidden {
+  display: none;
+}
+
 #editor {
   position: absolute;
   top: 0;

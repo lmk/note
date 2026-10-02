@@ -106,7 +106,10 @@ exports.connection = function(socket){
   socket.on('send', function(data){
     var noteId = socket.data.noteId
       var note = notes[noteId];
-      if ( !note ) return;
+      if ( !note ) {
+        socket.emit('session_required');
+        return;
+      }
 
       if ( data.position ) {
         note.position = normalizePosition(data.position);  
