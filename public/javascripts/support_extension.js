@@ -56,7 +56,6 @@ var support_extension = {
   markdown: ['markdown', 'mdown', 'md', 'mkdn'],
   matlab: ['matlab', 'm'],
   mushcode: ['mushcode', 'mpp'],
-  mushcode_high_rules: ['mushcode_high_rules'],
   mysql: ['sql', 'mysql'],
   nix: ['nix'],
   objectivec: ['objectivec', 'm', 'mm'],

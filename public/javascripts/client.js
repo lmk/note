@@ -4,6 +4,7 @@ $(document).ready(function(){
   var editorReady = false;
   var hasConnectedOnce = false;
   var pendingFlush = false;
+  var isComposing = false;
   var hideBannerTimer = null;
   var socket = io.connect('/', {
     reconnection: true,
@@ -46,7 +47,7 @@ $(document).ready(function(){
   }
 
   function emitCurrentDocument() {
-    if (!editor || !socket.connected || !info.id) return;
+    if (!editor || !socket.connected || !info.id || isComposing) return;
 
     var position = editor.getCursorPosition();
     socket.emit('send', {
@@ -62,14 +63,49 @@ $(document).ready(function(){
     pendingFlush = false;
   }
 
+  function scheduleEmit(e) {
+    if (isComposing || (e && e.originalEvent && e.originalEvent.isComposing)) {
+      pendingFlush = true;
+      return;
+    }
+    if (!socket.connected || !info.id) {
+      pendingFlush = true;
+      return;
+    }
+    emitCurrentDocument();
+  }
+
+  function applyRemoteUpdate(data) {
+    if ( typeof data.content === 'string' && editor.getSession().getValue() !== data.content ) {
+      editor.getSession().setValue(data.content);
+    }
+
+    if ( data.position ) {
+      editor.moveCursorToPosition({
+        row: data.position.row || 0,
+        column: (data.position.column != null ? data.position.column : data.position.col) || 0
+      });
+    }
+  }
+
   function bindEditorEvents() {
-    $('#editor').on('keyup.noteSync', function(){
-      if (!socket.connected || !info.id) {
-        pendingFlush = true;
-        return;
-      }
-      emitCurrentDocument();
-    });
+    var editorDom = document.getElementById('editor');
+
+    // Capture on the editor root so Ace's inner textarea is covered.
+    editorDom.addEventListener('compositionstart', function(){
+      isComposing = true;
+    }, true);
+
+    editorDom.addEventListener('compositionend', function(){
+      isComposing = false;
+      // Commit after IME finishes so intermediate jamo are not synced,
+      // and so Ace can finish its own composition cleanup first.
+      setTimeout(function(){
+        if (!isComposing && pendingFlush) emitCurrentDocument();
+      }, 0);
+    }, true);
+
+    $('#editor').on('keyup.noteSync', scheduleEmit);
   }
 
   function ensureEditor(data) {
@@ -80,11 +116,12 @@ $(document).ready(function(){
       return;
     }
 
+    ace.config.set('basePath', '/javascripts/ace-editor');
     editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.setFontSize(info.sz || 16);
-    editor.getSession().setMode("ace/mode/" + getFileType(document.URL.split('.').pop()));
-    editor.getSession().setTabSize(2);
+    editor.session.setMode("ace/mode/" + getFileType(document.URL.split('.').pop()));
+    editor.session.setTabSize(2);
 
     var content = (data && data.content != null) ? data.content : '';
     var position = {
@@ -139,16 +176,9 @@ $(document).ready(function(){
 
     /* 내가 요청한 content를 갱신할 필요 없다. */
     if ( data && data.owner && data.owner !== info.id ) {
-      if ( typeof data.content === 'string' && editor.getSession().getValue() !== data.content ) {
-        editor.getSession().setValue(data.content);
-      }
-
-      if ( data.position ) {
-        editor.moveCursorToPosition({
-          row: data.position.row || 0,
-          column: (data.position.column != null ? data.position.column : data.position.col) || 0
-        });
-      }
+      // Applying setValue mid-IME breaks composition and can duplicate chars.
+      if (isComposing) return;
+      applyRemoteUpdate(data);
     }
   });
 

@@ -11,6 +11,7 @@ app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.engine('html', require('ejs').renderFile)
 app.use(favicon(__dirname + '/public/images/favicon.ico'));
+app.use('/javascripts/ace-editor', express.static(__dirname + '/node_modules/ace-builds/src-min-noconflict'));
 app.use(express.static(__dirname + '/public'));
 
 app.get('/', routes.index);
