@@ -4,7 +4,15 @@ var express = require('express')
   , loader = require('./controller/server');
 var app = express();
 var server = require('http').createServer(app);
-var io = require('socket.io')(server);
+var io = require('socket.io')(server, {
+  // A reverse proxy can delay the ping. Drop the session only after it is actually gone.
+  pingInterval: 25000,
+  pingTimeout: 60000
+});
+
+io.engine.on('connection_error', function(err) {
+  console.log('socket.io connection_error', err.code, err.message);
+});
 
 app.set('port', process.env.PORT || 8080);
 app.set('views', __dirname + '/views');

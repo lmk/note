@@ -39,8 +39,8 @@ exports.init = function (cfg) {
 exports.connection = function(socket){
 
   console.log("in exports.connection")
-  socket.on('disconnect', function(){
-    console.log("disconnect "+ socket.data.noteId);
+  socket.on('disconnect', function(reason){
+    console.log('disconnect', socket.data && socket.data.noteId, reason);
   });
 
   socket.on('init', function(data){

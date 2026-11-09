@@ -7,6 +7,8 @@ $(document).ready(function(){
   var isComposing = false;
   var hideBannerTimer = null;
   var socket = io.connect('/', {
+    // Polling keeps a sid that comes back as HTTP 400 after the proxy drops it.
+    transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 20,
     reconnectionDelay: 1000,
@@ -144,8 +146,9 @@ $(document).ready(function(){
     hasConnectedOnce = true;
   });
 
-  socket.on('disconnect', function(){
+  socket.on('disconnect', function(reason){
     pendingFlush = true;
+    console.log('socket disconnect', reason);
     setConnectionStatus('offline', '연결이 끊겼습니다. 재연결 중…');
   });
 
@@ -157,7 +160,8 @@ $(document).ready(function(){
     setConnectionStatus('failed', '연결할 수 없습니다.', true);
   });
 
-  socket.on('connect_error', function(){
+  socket.on('connect_error', function(err){
+    console.log('socket connect_error', err && err.message);
     if (!hasConnectedOnce) {
       setConnectionStatus('reconnecting', '서버에 연결하는 중…');
     }
