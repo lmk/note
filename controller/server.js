@@ -68,21 +68,6 @@ function createPasswordRecord(pwd) {
   return salt + ':' + hashPassword(salt, pwd);
 }
 
-function noteAlreadyExists(name) {
-  if (getNoteIdByName(name) !== -1) return true;
-
-  var suffixes = ['.dat', '.pos'];
-  for (var i = 0; i < suffixes.length; i++) {
-    try {
-      fs.accessSync(path.join(dataDir, name + suffixes[i]));
-      return true;
-    } catch (e) {
-      if (e.code !== 'ENOENT') console.log(e);
-    }
-  }
-  return false;
-}
-
 function readPasswordRecord(name) {
   try {
     return fs.readFileSync(passwordPath(name), 'utf8');
@@ -93,39 +78,51 @@ function readPasswordRecord(name) {
   }
 }
 
-/* 저장된 값이 비어 있으면 비밀번호 없이 만든 노트다. */
+function passwordIsSet(stored) {
+  return stored != null && String(stored).trim() !== '';
+}
+
 function decidePassword(stored, pwd) {
-  if (String(stored).trim() === '') return { ok: true };
   if (passwordMatches(stored, pwd)) return { ok: true };
   return { ok: false };
 }
 
-/* 생성 시 pwd 와 열 때 pwd 가 다르면 노트를 열지 않는다.
- * 비밀번호 없이 만든 노트는 그대로 열린다.
+/* pwd 파일이 없거나 비어 있으면 아직 비밀번호가 없다.
+ * 이때 pwd 옵션을 주면 기존 노트에도 비밀번호를 저장한다.
  */
 function authorize(name, pwd) {
   pwd = normalizePwd(pwd);
   if (!isSafeNoteName(name) || !dataDir) return { ok: false };
 
+  var file = passwordPath(name);
   var stored = readPasswordRecord(name);
   if (stored === false) return { ok: false };
-  if (stored != null) return decidePassword(stored, pwd);
+  if (passwordIsSet(stored)) return decidePassword(stored, pwd);
+  if (!pwd) return { ok: true };
 
-  var file = passwordPath(name);
-  var record = noteAlreadyExists(name) ? '' : createPasswordRecord(pwd);
-
-  try {
-    fs.writeFileSync(file, record, { encoding: 'utf8', flag: 'wx' });
-  } catch (e) {
-    if (e.code !== 'EEXIST') {
-      console.log(e);
-      return { ok: false };
+  var record = createPasswordRecord(pwd);
+  if (stored == null) {
+    try {
+      fs.writeFileSync(file, record, { encoding: 'utf8', flag: 'wx' });
+      return { ok: true };
+    } catch (e) {
+      if (e.code !== 'EEXIST') {
+        console.log(e);
+        return { ok: false };
+      }
     }
+
     stored = readPasswordRecord(name);
     if (stored === false || stored == null) return { ok: false };
-    return decidePassword(stored, pwd);
+    if (passwordIsSet(stored)) return decidePassword(stored, pwd);
   }
 
+  try {
+    fs.writeFileSync(file, record, { encoding: 'utf8' });
+  } catch (e) {
+    console.log(e);
+    return { ok: false };
+  }
   return { ok: true };
 }
 
