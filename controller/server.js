@@ -1,5 +1,7 @@
 
+var crypto = require('crypto');
 var fs = require('fs');
+var path = require('path');
 var io = null;
 var dataDir = null;
 var notes = [];
@@ -25,6 +27,110 @@ function normalizePosition(position) {
   };
 }
 
+function isSafeNoteName(name) {
+  return typeof name === 'string'
+    && name.length > 0
+    && name.indexOf('/') === -1
+    && name.indexOf('\\') === -1
+    && name.indexOf('\0') === -1
+    && name !== '.'
+    && name !== '..';
+}
+
+function normalizePwd(pwd) {
+  if (Array.isArray(pwd)) pwd = pwd[0];
+  if (typeof pwd !== 'string') return '';
+  return pwd;
+}
+
+function passwordPath(name) {
+  return path.join(dataDir, name + '.pwd');
+}
+
+function hashPassword(salt, pwd) {
+  return crypto.createHash('sha256').update(salt + '\n' + pwd, 'utf8').digest('hex');
+}
+
+function passwordMatches(stored, pwd) {
+  var parts = String(stored).trim().split(':');
+  if (parts.length !== 2 || !pwd) return false;
+
+  var actual = hashPassword(parts[0], pwd);
+  var expectedBuf = Buffer.from(parts[1]);
+  var actualBuf = Buffer.from(actual);
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+function createPasswordRecord(pwd) {
+  if (!pwd) return '';
+  var salt = crypto.randomBytes(16).toString('hex');
+  return salt + ':' + hashPassword(salt, pwd);
+}
+
+function noteAlreadyExists(name) {
+  if (getNoteIdByName(name) !== -1) return true;
+
+  var suffixes = ['.dat', '.pos'];
+  for (var i = 0; i < suffixes.length; i++) {
+    try {
+      fs.accessSync(path.join(dataDir, name + suffixes[i]));
+      return true;
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.log(e);
+    }
+  }
+  return false;
+}
+
+function readPasswordRecord(name) {
+  try {
+    return fs.readFileSync(passwordPath(name), 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    console.log(e);
+    return false;
+  }
+}
+
+/* 저장된 값이 비어 있으면 비밀번호 없이 만든 노트다. */
+function decidePassword(stored, pwd) {
+  if (String(stored).trim() === '') return { ok: true };
+  if (passwordMatches(stored, pwd)) return { ok: true };
+  return { ok: false };
+}
+
+/* 생성 시 pwd 와 열 때 pwd 가 다르면 노트를 열지 않는다.
+ * 비밀번호 없이 만든 노트는 그대로 열린다.
+ */
+function authorize(name, pwd) {
+  pwd = normalizePwd(pwd);
+  if (!isSafeNoteName(name) || !dataDir) return { ok: false };
+
+  var stored = readPasswordRecord(name);
+  if (stored === false) return { ok: false };
+  if (stored != null) return decidePassword(stored, pwd);
+
+  var file = passwordPath(name);
+  var record = noteAlreadyExists(name) ? '' : createPasswordRecord(pwd);
+
+  try {
+    fs.writeFileSync(file, record, { encoding: 'utf8', flag: 'wx' });
+  } catch (e) {
+    if (e.code !== 'EEXIST') {
+      console.log(e);
+      return { ok: false };
+    }
+    stored = readPasswordRecord(name);
+    if (stored === false || stored == null) return { ok: false };
+    return decidePassword(stored, pwd);
+  }
+
+  return { ok: true };
+}
+
+exports.authorize = authorize;
+
 /* @brif server initinailize 
  * @param[in] cfg option
  * @remark default load
@@ -44,6 +150,15 @@ exports.connection = function(socket){
   });
 
   socket.on('init', function(data){
+    data = data || {};
+
+    var access = authorize(data.name, data.pwd);
+    if (!access.ok) {
+      socket.data.denied = true;
+      socket.emit('access_denied');
+      return;
+    }
+    socket.data.denied = false;
 
     var note;
 
@@ -104,6 +219,11 @@ exports.connection = function(socket){
   });
 
   socket.on('send', function(data){
+    if (socket.data && socket.data.denied) {
+      socket.emit('access_denied');
+      return;
+    }
+
     var noteId = socket.data.noteId
       var note = notes[noteId];
       if ( !note ) {

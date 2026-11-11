@@ -1,11 +1,23 @@
 ﻿var editor;
 
+function queryPwd() {
+  var match = window.location.search.match(/(?:^|[?&])pwd=([^&]*)/);
+  if (!match) return '';
+  try {
+    return decodeURIComponent(match[1].replace(/\+/g, ' '));
+  } catch (e) {
+    return '';
+  }
+}
+
 $(document).ready(function(){
   var editorReady = false;
   var hasConnectedOnce = false;
   var pendingFlush = false;
   var isComposing = false;
   var hideBannerTimer = null;
+  var accessDenied = false;
+  info.pwd = queryPwd();
   var socket = io.connect('/', {
     // Polling keeps a sid that comes back as HTTP 400 after the proxy drops it.
     transports: ['websocket'],
@@ -45,6 +57,8 @@ $(document).ready(function(){
   }
 
   function requestSession() {
+    if (accessDenied) return;
+    info.pwd = queryPwd();
     socket.emit('init', info);
   }
 
@@ -122,7 +136,7 @@ $(document).ready(function(){
     editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.setFontSize(info.sz || 16);
-    editor.session.setMode("ace/mode/" + getFileType(document.URL.split('.').pop()));
+    editor.session.setMode("ace/mode/" + getFileType(info.format || 'js'));
     editor.session.setTabSize(2);
 
     var content = (data && data.content != null) ? data.content : '';
@@ -138,6 +152,7 @@ $(document).ready(function(){
   }
 
   socket.on('connect', function(){
+    if (accessDenied) return;
     requestSession();
 
     if (hasConnectedOnce) {
@@ -149,10 +164,12 @@ $(document).ready(function(){
   socket.on('disconnect', function(reason){
     pendingFlush = true;
     console.log('socket disconnect', reason);
+    if (accessDenied) return;
     setConnectionStatus('offline', '연결이 끊겼습니다. 재연결 중…');
   });
 
   socket.on('reconnect_attempt', function(){
+    if (accessDenied) return;
     setConnectionStatus('reconnecting', '재연결 중…');
   });
 
@@ -169,6 +186,13 @@ $(document).ready(function(){
 
   socket.on('session_required', function(){
     requestSession();
+  });
+
+  socket.on('access_denied', function(){
+    accessDenied = true;
+    if (socket.io && socket.io.reconnection) socket.io.reconnection(false);
+    socket.disconnect();
+    setConnectionStatus('failed', '비밀번호가 일치하지 않아 페이지를 열 수 없습니다.');
   });
 
   socket.on('initAck', function(data){
